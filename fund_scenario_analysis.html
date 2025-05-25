@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investment Strategy Calculator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        /* Simple 2-column main grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: calc(100vh - 140px);
+        }
+
+        /* Left column - split into 3 sections with proper spacing */
+        .left-column {
+            display: grid;
+            grid-template-rows: 200px 240px 1fr;
+            gap: 15px;
+        }
+
+        /* Right column - split into 2 sections */
+        .right-column {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 15px;
+        }
+
+        /* Card styling */
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .card h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1rem;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .card p {
+            color: #555;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        /* Investment Parameters - horizontal layout */
+        .params-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            align-items: end;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 3px;
+        }
+
+        .input-group input,
+        .input-group select {
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .auto-note {
+            grid-column: 1 / -1;
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            border-radius: 4px;
+            padding: 6px;
+            font-size: 0.75rem;
+            color: #2e7d32;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        /* Results cards - compact */
+        .results-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #e1e8ed;
+        }
+
+        .result-card h4 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 0.8rem;
+        }
+
+        .result-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 2px;
+        }
+
+        .result-subtitle {
+            font-size: 0.7rem;
+            color: #7f8c8d;
+        }
+
+        /* Table styling */
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 0.8rem;
+        }
+
+        .details-table th,
+        .details-table td {
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid #e1e8ed;
+        }
+
+        .details-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        .details-table tr:nth-child(even) {
+            background: #f8f9ff;
+        }
+
+        .best-strategy {
+            background: #d4edda !important;
+            font-weight: bold;
+        }
+
+        /* Chart container */
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .params-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .params-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .results-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Investment Strategy Calculator</h1>
+            <p>Compare Taxable Account, Traditional IRA, and Roth Conversion strategies</p>
+        </div>
+
+        <div class="main-grid">
+            <!-- Left Column (3 sections) -->
+            <div class="left-column">
+                <!-- Section 1: What This Calculator Does -->
+                <div class="card">
+                    <h3>What This Calculator Does</h3>
+                    <p>This tool compares three investment strategies for a high-return fund investment: (1) investing through a taxable account with annual tax payments, (2) investing through a traditional IRA using a grossed-up amount to reflect the same post-tax basis as other strategies, and (3) converting to a Roth IRA first and investing tax-free. The calculator shows which strategy delivers the highest risk-adjusted returns (XIRR) based on your specific tax situation.</p>
+                </div>
+
+                <!-- Section 2: Key Assumptions -->
+                <div class="card">
+                    <h3>Key Assumptions</h3>
+                    <p><strong>Tax Year:</strong> 2025 progressive tax brackets and incremental tax methodology are used for all calculations.</p>
+                    <p><strong>Traditional IRA:</strong> The investment amount is grossed-up to reflect the same post-tax opportunity cost as other strategies. XIRR assumes a single lump-sum distribution at the end of the investment period, which may not be optimal from a tax planning perspective.</p>
+                    <p><strong>Taxable Account:</strong> Annual gains are taxed as ordinary income in the year realized, with taxes paid from external funds.</p>
+                    <p><strong>Roth Conversion:</strong> Conversion taxes are paid upfront from external funds, allowing tax-free growth thereafter.</p>
+                </div>
+
+                <!-- Section 3: Disclaimer -->
+                <div class="card">
+                    <h3>Important Disclaimer</h3>
+                    <p><strong>Educational Use Only:</strong> This calculator is provided for educational and informational purposes only and does not constitute investment, tax, or financial advice. All calculations are estimates and may not reflect actual results. Investment decisions should be made in consultation with qualified financial and tax professionals. Tax laws are complex and subject to change. By using this calculator, you acknowledge that the results are for illustrative purposes only and agree to hold harmless the creators from any decisions made based on these calculations. You assume full responsibility for any investment decisions and their outcomes.</p>
+                </div>
+            </div>
+
+            <!-- Right Column (2 sections) -->
+            <div class="right-column">
+                <!-- Section 1: Investment Parameters -->
+                <div class="card">
+                    <h3>Investment Parameters</h3>
+                    <div class="params-grid">
+                        <div class="input-group">
+                            <label for="initialInvestment">Initial Investment ($)</label>
+                            <input type="number" id="initialInvestment" value="50000" min="1000" step="1000">
+                        </div>
+                        <div class="input-group">
+                            <label for="fundReturn">Fund Annual Return (%)</label>
+                            <input type="number" id="fundReturn" value="35" min="1" max="200" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="investmentPeriod">Investment Period (years)</label>
+                            <input type="number" id="investmentPeriod" value="4.58" min="0.5" max="50" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label for="baseIncome">Base Taxable Income ($)</label>
+                            <input type="number" id="baseIncome" value="199999" min="0" step="1000">
+                        </div>
+                        <div class="input-group">
+                            <label for="filingStatus">Filing Status</label>
+                            <select id="filingStatus">
+                                <option value="mfj">Married Filing Jointly</option>
+                                <option value="single">Single</option>
+                                <option value="mfs">Married Filing Separately</option>
+                                <option value="hoh">Head of Household</option>
+                            </select>
+                        </div>
+                        <div class="auto-note">
+                            📊 Calculations update automatically as you change values
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Results Summary & Chart -->
+                <div class="card">
+                    <h3>Results Summary</h3>
+
+                    <table class="details-table">
+                        <thead>
+                            <tr>
+                                <th>Strategy</th>
+                                <th>Initial Investment</th>
+                                <th>Total Taxes Paid</th>
+                                <th>Final Value</th>
+                                <th>Net Return</th>
+                                <th>XIRR</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailsTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: #7f8c8d;">Loading calculations...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Sensitivity Analysis: XIRR vs Fund Return Rate</h3>
+                    <div class="chart-container">
+                        <canvas id="resultsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 2025 Tax brackets
+        const taxBrackets = {
+            mfj: {
+                brackets: [0, 23200, 94300, 201050, 383900, 487450, 731200],
+                rates: [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
+            },
+            single: {
+                brackets: [0, 11600, 47150, 100525, 191950, 243725, 609350],
+                rates: [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
+            },
+            mfs: {
+                brackets: [0, 11600, 47150, 100525, 191950, 243725, 365600],
+                rates: [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
+            },
+            hoh: {
+                brackets: [0, 16550, 63100, 100500, 191950, 243700, 609350],
+                rates: [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
+            }
+        };
+
+        let resultsChart = null;
+
+        function calculateFederalTax(taxableIncome, filingStatus) {
+            const { brackets, rates } = taxBrackets[filingStatus];
+            let tax = 0;
+            
+            for (let i = brackets.length - 1; i >= 0; i--) {
+                if (taxableIncome > brackets[i]) {
+                    const taxableAtThisLevel = taxableIncome - brackets[i];
+                    tax += taxableAtThisLevel * rates[i];
+                    taxableIncome = brackets[i];
+                }
+            }
+            
+            return tax;
+        }
+
+        function incrementalTaxOnGain(baseIncome, gain, filingStatus) {
+            const totalTaxWithGain = calculateFederalTax(baseIncome + gain, filingStatus);
+            const totalTaxWithoutGain = calculateFederalTax(baseIncome, filingStatus);
+            return totalTaxWithGain - totalTaxWithoutGain;
+        }
+
+        function xirr(cashFlows, dates) {
+            const startDate = new Date(dates[0]);
+            const yearsFromStart = dates.map(date => {
+                const d = new Date(date);
+                return (d - startDate) / (365.25 * 24 * 60 * 60 * 1000);
+            });
+            
+            let rate = 0.1;
+            
+            for (let i = 0; i < 100; i++) {
+                let npv = 0;
+                let dnpv = 0;
+                
+                for (let j = 0; j < cashFlows.length; j++) {
+                    const factor = Math.pow(1 + rate, yearsFromStart[j]);
+                    npv += cashFlows[j] / factor;
+                    dnpv -= cashFlows[j] * yearsFromStart[j] / factor / (1 + rate);
+                }
+                
+                if (Math.abs(npv) < 0.01) break;
+                rate = rate - npv / dnpv;
+            }
+            
+            return rate;
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+        }
+
+        function formatPercent(rate) {
+            return (rate * 100).toFixed(1) + '%';
+        }
+
+        function calculateTaxableAccount(initialInvestment, fundReturn, period, baseIncome, filingStatus) {
+            const cashFlows = [-initialInvestment / 1000];
+            const dates = ['2025-06-01'];
+            let nav = initialInvestment / 1000;
+            let totalTaxes = 0;
+
+            const startDate = new Date('2025-06-01');
+            const endDate = new Date(startDate);
+            endDate.setTime(startDate.getTime() + (period * 365.25 * 24 * 60 * 60 * 1000));
+
+            const fullYears = Math.floor(period);
+            const remainingYears = period - fullYears;
+
+            for (let year = 1; year <= fullYears; year++) {
+                const gain = nav * fundReturn;
+                const tax = incrementalTaxOnGain(baseIncome, gain * 1000, filingStatus) / 1000;
+                
+                totalTaxes += tax;
+                cashFlows.push(-tax);
+                
+                const yearDate = new Date(startDate);
+                yearDate.setFullYear(startDate.getFullYear() + year);
+                dates.push(yearDate.toISOString().split('T')[0]);
+                
+                nav = nav * (1 + fundReturn);
+            }
+            
+            if (remainingYears > 0) {
+                const finalPeriodReturn = Math.pow(1 + fundReturn, remainingYears) - 1;
+                const finalGain = nav * finalPeriodReturn;
+                const finalTax = incrementalTaxOnGain(baseIncome, finalGain * 1000, filingStatus) / 1000;
+                const finalNAV = nav * (1 + finalPeriodReturn);
+                
+                const finalNetCashFlow = finalNAV - finalTax;
+                totalTaxes += finalTax;
+                
+                cashFlows.push(finalNetCashFlow);
+                dates.push(endDate.toISOString().split('T')[0]);
+            } else {
+                cashFlows.push(nav);
+                dates.push(endDate.toISOString().split('T')[0]);
+            }
+            
+            const xirrResult = xirr(cashFlows, dates);
+            const finalValue = (cashFlows[cashFlows.length - 1]) * 1000;
+
+            return {
+                xirr: xirrResult,
+                finalValue: finalValue,
+                totalTaxes: totalTaxes * 1000,
+                initialInvestment: initialInvestment,
+                netReturn: finalValue - initialInvestment
+            };
+        }
+
+        function calculateTraditionalIRA(initialInvestment, fundReturn, period, baseIncome, filingStatus) {
+            const incrementalTaxOnInitial = incrementalTaxOnGain(baseIncome, initialInvestment, filingStatus);
+            const grossedUpInvestment = initialInvestment + incrementalTaxOnInitial;
+            const finalIRAValue = grossedUpInvestment * Math.pow(1 + fundReturn, period);
+            const totalTaxOnWithdrawal = incrementalTaxOnGain(baseIncome, finalIRAValue, filingStatus);
+            const postTaxTerminalValue = finalIRAValue - totalTaxOnWithdrawal;
+            
+            const startDate = new Date('2025-06-01');
+            const endDate = new Date(startDate);
+            endDate.setTime(startDate.getTime() + (period * 365.25 * 24 * 60 * 60 * 1000));
+            
+            const dates = ['2025-06-01', endDate.toISOString().split('T')[0]];
+            const cashFlows = [-grossedUpInvestment / 1000, postTaxTerminalValue / 1000];
+            const xirrResult = xirr(cashFlows, dates);
+
+            return {
+                xirr: xirrResult,
+                finalValue: postTaxTerminalValue,
+                totalTaxes: totalTaxOnWithdrawal,
+                initialInvestment: grossedUpInvestment,
+                netReturn: postTaxTerminalValue - grossedUpInvestment
+            };
+        }
+
+        function calculateRothConversion(initialInvestment, fundReturn, period, baseIncome, filingStatus) {
+            const conversionTax = incrementalTaxOnGain(baseIncome, initialInvestment, filingStatus);
+            const totalInitialOutlay = initialInvestment + conversionTax;
+            const finalValue = initialInvestment * Math.pow(1 + fundReturn, period);
+
+            const startDate = new Date('2025-06-01');
+            const endDate = new Date(startDate);
+            endDate.setTime(startDate.getTime() + (period * 365.25 * 24 * 60 * 60 * 1000));
+            
+            const cashFlows = [-totalInitialOutlay / 1000, finalValue / 1000];
+            const dates = ['2025-06-01', endDate.toISOString().split('T')[0]];
+            const xirrResult = xirr(cashFlows, dates);
+
+            return {
+                xirr: xirrResult,
+                finalValue: finalValue,
+                totalTaxes: conversionTax,
+                initialInvestment: totalInitialOutlay,
+                netReturn: finalValue - totalInitialOutlay
+            };
+        }
+
+        function calculateScenarios() {
+            const initialInvestment = parseFloat(document.getElementById('initialInvestment').value);
+            const fundReturn = parseFloat(document.getElementById('fundReturn').value) / 100;
+            const investmentPeriod = parseFloat(document.getElementById('investmentPeriod').value);
+            const baseIncome = parseFloat(document.getElementById('baseIncome').value);
+            const filingStatus = document.getElementById('filingStatus').value;
+
+            const results = {
+                taxable: calculateTaxableAccount(initialInvestment, fundReturn, investmentPeriod, baseIncome, filingStatus),
+                traditional: calculateTraditionalIRA(initialInvestment, fundReturn, investmentPeriod, baseIncome, filingStatus),
+                roth: calculateRothConversion(initialInvestment, fundReturn, investmentPeriod, baseIncome, filingStatus)
+            };
+
+            updateResults(results);
+            updateDetailsTable(results);
+            generateSensitivityChart();
+        }
+
+        function generateSensitivityChart() {
+            const initialInvestment = parseFloat(document.getElementById('initialInvestment').value);
+            const investmentPeriod = parseFloat(document.getElementById('investmentPeriod').value);
+            const baseIncome = parseFloat(document.getElementById('baseIncome').value);
+            const filingStatus = document.getElementById('filingStatus').value;
+
+            const returnRates = [];
+            const taxableXIRRs = [];
+            const iraXIRRs = [];
+            const rothXIRRs = [];
+            
+            for (let rate = 10; rate <= 100; rate += 5) {
+                const returnRate = rate / 100;
+                returnRates.push(rate);
+                
+                const taxableResult = calculateTaxableAccount(initialInvestment, returnRate, investmentPeriod, baseIncome, filingStatus);
+                const iraResult = calculateTraditionalIRA(initialInvestment, returnRate, investmentPeriod, baseIncome, filingStatus);
+                const rothResult = calculateRothConversion(initialInvestment, returnRate, investmentPeriod, baseIncome, filingStatus);
+                
+                taxableXIRRs.push(taxableResult.xirr * 100);
+                iraXIRRs.push(iraResult.xirr * 100);
+                rothXIRRs.push(rothResult.xirr * 100);
+            }
+
+            updateSensitivityChart(returnRates, taxableXIRRs, iraXIRRs, rothXIRRs);
+        }
+
+        function setupAutoCalculation() {
+            const inputs = ['initialInvestment', 'fundReturn', 'investmentPeriod', 'baseIncome', 'filingStatus'];
+            
+            inputs.forEach(inputId => {
+                const element = document.getElementById(inputId);
+                element.addEventListener('input', debounce(calculateScenarios, 500));
+                element.addEventListener('change', calculateScenarios);
+            });
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function updateResults(results) {
+            // Results now only update the table, no more result cards
+            updateDetailsTable(results);
+        }
+
+        function updateSensitivityChart(returnRates, taxableXIRRs, iraXIRRs, rothXIRRs) {
+            const ctx = document.getElementById('resultsChart').getContext('2d');
+            
+            if (resultsChart) {
+                resultsChart.destroy();
+            }
+
+            resultsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: returnRates,
+                    datasets: [
+                        {
+                            label: 'Taxable Account',
+                            data: taxableXIRRs,
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Traditional IRA',
+                            data: iraXIRRs,
+                            borderColor: '#f39c12',
+                            backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Roth Conversion',
+                            data: rothXIRRs,
+                            borderColor: '#27ae60',
+                            backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Fund Annual Return Rate (%)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'XIRR (%)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Sensitivity Analysis: XIRR vs Fund Return Rate',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDetailsTable(results) {
+            const tbody = document.getElementById('detailsTableBody');
+            
+            const xirrs = [results.taxable.xirr, results.traditional.xirr, results.roth.xirr];
+            const maxXIRR = Math.max(...xirrs);
+            
+            tbody.innerHTML = `
+                <tr ${results.taxable.xirr === maxXIRR ? 'class="best-strategy"' : ''}>
+                    <td>Taxable Account</td>
+                    <td>${formatCurrency(results.taxable.initialInvestment)}</td>
+                    <td>${formatCurrency(results.taxable.totalTaxes)}</td>
+                    <td>${formatCurrency(results.taxable.finalValue)}</td>
+                    <td>${formatCurrency(results.taxable.netReturn)}</td>
+                    <td>${formatPercent(results.taxable.xirr)}</td>
+                </tr>
+                <tr ${results.traditional.xirr === maxXIRR ? 'class="best-strategy"' : ''}>
+                    <td>Traditional IRA</td>
+                    <td>${formatCurrency(results.traditional.initialInvestment)}</td>
+                    <td>${formatCurrency(results.traditional.totalTaxes)}</td>
+                    <td>${formatCurrency(results.traditional.finalValue)}</td>
+                    <td>${formatCurrency(results.traditional.netReturn)}</td>
+                    <td>${formatPercent(results.traditional.xirr)}</td>
+                </tr>
+                <tr ${results.roth.xirr === maxXIRR ? 'class="best-strategy"' : ''}>
+                    <td>Roth Conversion</td>
+                    <td>${formatCurrency(results.roth.initialInvestment)}</td>
+                    <td>${formatCurrency(results.roth.totalTaxes)}</td>
+                    <td>${formatCurrency(results.roth.finalValue)}</td>
+                    <td>${formatCurrency(results.roth.netReturn)}</td>
+                    <td>${formatPercent(results.roth.xirr)}</td>
+                </tr>
+            `;
+        }
+
+        // Initialize with default calculation and setup auto-calculation
+        window.addEventListener('load', () => {
+            setupAutoCalculation();
+            calculateScenarios();
+        });
+    </script>
+</body>
+</html>
