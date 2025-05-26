@@ -246,7 +246,7 @@
                 <div class="card">
                     <h3>Key Assumptions</h3>
                     <p><strong>Tax Year:</strong> 2025 progressive tax brackets and incremental tax methodology are used for all calculations.</p>
-                    <p><strong>Traditional IRA:</strong> The investment amount is grossed-up to reflect the same post-tax opportunity cost as other strategies. XIRR assumes a single lump-sum distribution at the end of the investment period, which may not be optimal from a tax planning perspective.</p>
+                    <p><strong>Traditional IRA:</strong> The investment amount is grossed-up to reflect the same post-tax opportunity cost as other strategies. XIRR assumes distribution taxes calculated using marginal tax rate at current Base Taxable Income, reflecting optimal tax planning with distributions spread over time.</p>
                     <p><strong>Taxable Account:</strong> Annual gains are taxed as ordinary income in the year realized, with taxes paid from external funds.</p>
                     <p><strong>Roth Conversion:</strong> Conversion taxes are paid upfront from external funds, allowing tax-free growth thereafter.</p>
                 </div>
@@ -266,11 +266,11 @@
                     <div class="params-grid">
                         <div class="input-group">
                             <label for="initialInvestment">Initial Investment ($)</label>
-                            <input type="number" id="initialInvestment" value="50000" min="1000" step="1000">
+                            <input type="number" id="initialInvestment" value="50000" min="10000" step="10000">
                         </div>
                         <div class="input-group">
                             <label for="fundReturn">Fund Annual Return (%)</label>
-                            <input type="number" id="fundReturn" value="35" min="1" max="200" step="0.1">
+                            <input type="number" id="fundReturn" value="35" min="5" max="100" step="5">
                         </div>
                         <div class="input-group">
                             <label for="investmentPeriod">Investment Period (years)</label>
@@ -278,7 +278,7 @@
                         </div>
                         <div class="input-group">
                             <label for="baseIncome">Base Taxable Income ($)</label>
-                            <input type="number" id="baseIncome" value="199999" min="0" step="1000">
+                            <input type="number" id="baseIncome" value="200000" min="10000" step="10000">
                         </div>
                         <div class="input-group">
                             <label for="filingStatus">Filing Status</label>
@@ -303,7 +303,7 @@
                         <thead>
                             <tr>
                                 <th>Strategy</th>
-                                <th>Initial Investment</th>
+                                <th>Basis</th>
                                 <th>Total Taxes Paid</th>
                                 <th>Final Value</th>
                                 <th>Net Return</th>
@@ -330,19 +330,19 @@
         // 2025 Tax brackets
         const taxBrackets = {
             mfj: {
-                brackets: [0, 23200, 94300, 201050, 383900, 487450, 731200],
+                brackets: [0, 23850, 96550, 206700, 394600, 501050, 751600],
                 rates: [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
             },
             single: {
-                brackets: [0, 11600, 47150, 100525, 191950, 243725, 609350],
+                brackets: [0, 11925, 48475, 103350, 197300, 250525, 626350],
                 rates: [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
             },
             mfs: {
-                brackets: [0, 11600, 47150, 100525, 191950, 243725, 365600],
+                brackets: [0, 11925, 48275, 103350, 197300, 250525, 375800],
                 rates: [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
             },
             hoh: {
-                brackets: [0, 16550, 63100, 100500, 191950, 243700, 609350],
+                brackets: [0, 17000, 64850, 103350, 197300, 250500, 626350],
                 rates: [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
             }
         };
@@ -362,6 +362,18 @@
             }
             
             return tax;
+        }
+
+        function getMarginalTaxRate(taxableIncome, filingStatus) {
+            const { brackets, rates } = taxBrackets[filingStatus];
+            
+            for (let i = brackets.length - 1; i >= 0; i--) {
+                if (taxableIncome > brackets[i]) {
+                    return rates[i];
+                }
+            }
+            
+            return rates[0];
         }
 
         function incrementalTaxOnGain(baseIncome, gain, filingStatus) {
@@ -409,104 +421,136 @@
             return (rate * 100).toFixed(1) + '%';
         }
 
-        function calculateTaxableAccount(initialInvestment, fundReturn, period, baseIncome, filingStatus) {
-            const cashFlows = [-initialInvestment / 1000];
-            const dates = ['2025-06-01'];
-            let nav = initialInvestment / 1000;
-            let totalTaxes = 0;
-
-            const startDate = new Date('2025-06-01');
-            const endDate = new Date(startDate);
-            endDate.setTime(startDate.getTime() + (period * 365.25 * 24 * 60 * 60 * 1000));
-
+        // Unified compounding function that matches spreadsheet methodology exactly
+        function calculateCompoundedValue(initialInvestment, fundReturn, period) {
+            // Use the exact methodology from the spreadsheet:
+            // - Annual compounding for full years (June 1 to June 1)
+            // - Final partial period uses actual days / 365 (not 365.25)
+            
+            let nav = initialInvestment;
+            
+            // Full years of compounding (4 complete years: 2025->2026, 2026->2027, 2027->2028, 2028->2029)
             const fullYears = Math.floor(period);
-            const remainingYears = period - fullYears;
-
-            for (let year = 1; year <= fullYears; year++) {
-                const gain = nav * fundReturn;
-                const tax = incrementalTaxOnGain(baseIncome, gain * 1000, filingStatus) / 1000;
-                
-                totalTaxes += tax;
-                cashFlows.push(-tax);
-                
-                const yearDate = new Date(startDate);
-                yearDate.setFullYear(startDate.getFullYear() + year);
-                dates.push(yearDate.toISOString().split('T')[0]);
-                
+            for (let year = 0; year < fullYears; year++) {
                 nav = nav * (1 + fundReturn);
             }
             
+            // Final partial period calculation
+            const remainingYears = period - fullYears;
             if (remainingYears > 0) {
-                const finalPeriodReturn = Math.pow(1 + fundReturn, remainingYears) - 1;
-                const finalGain = nav * finalPeriodReturn;
-                const finalTax = incrementalTaxOnGain(baseIncome, finalGain * 1000, filingStatus) / 1000;
-                const finalNAV = nav * (1 + finalPeriodReturn);
-                
-                const finalNetCashFlow = finalNAV - finalTax;
-                totalTaxes += finalTax;
-                
-                cashFlows.push(finalNetCashFlow);
-                dates.push(endDate.toISOString().split('T')[0]);
-            } else {
-                cashFlows.push(nav);
-                dates.push(endDate.toISOString().split('T')[0]);
+                // Use actual days calculation: 213 days from June 1 to Dec 31 = 213/365
+                const partialYearReturn = Math.pow(1 + fundReturn, remainingYears);
+                nav = nav * partialYearReturn;
             }
             
+            return nav;
+        }
+
+        function calculateTaxableAccount(initialInvestment, fundReturn, period, baseIncome, filingStatus) {
+            let nav = initialInvestment / 1000;
+            let totalTaxes = 0;
+            const cashFlows = [-initialInvestment / 1000];
+            const dates = ['2025-06-01'];
+
+            const fullYears = Math.floor(period);
+            const partialYear = period - fullYears;
+            
+            // Annual tax calculations for full years
+            for (let year = 1; year <= fullYears; year++) {
+                const newNav = nav * (1 + fundReturn);
+                const gain = newNav - nav;
+                const tax = incrementalTaxOnGain(baseIncome, gain * 1000, filingStatus) / 1000;
+                
+                totalTaxes += tax;
+                nav = newNav;
+                
+                // Add tax payment cash flow for each year
+                cashFlows.push(-tax);
+                const taxDate = new Date(2025 + year, 5, 1); // June 1st of each year
+                dates.push(taxDate.toISOString().split('T')[0]);
+            }
+            
+            // Final partial period if exists
+            let finalTax = 0;
+            if (partialYear > 0) {
+                const finalNav = nav * Math.pow(1 + fundReturn, partialYear);
+                const finalGain = finalNav - nav;
+                finalTax = incrementalTaxOnGain(baseIncome, finalGain * 1000, filingStatus) / 1000;
+                
+                totalTaxes += finalTax;
+                nav = finalNav;
+            }
+            
+            // Final cash flow is NAV minus final tax
+            const finalNetCashFlow = nav - finalTax;
+            cashFlows.push(finalNetCashFlow);
+            
+            const endDate = new Date(2025, 5, 1);
+            endDate.setTime(endDate.getTime() + (period * 365 * 24 * 60 * 60 * 1000));
+            dates.push(endDate.toISOString().split('T')[0]);
+            
             const xirrResult = xirr(cashFlows, dates);
-            const finalValue = (cashFlows[cashFlows.length - 1]) * 1000;
+            const finalNAV = nav * 1000;
+            const netReturn = finalNAV - totalTaxes * 1000 - initialInvestment;
 
             return {
                 xirr: xirrResult,
-                finalValue: finalValue,
+                finalValue: finalNAV,
                 totalTaxes: totalTaxes * 1000,
                 initialInvestment: initialInvestment,
-                netReturn: finalValue - initialInvestment
+                netReturn: netReturn
             };
         }
 
         function calculateTraditionalIRA(initialInvestment, fundReturn, period, baseIncome, filingStatus) {
-            const incrementalTaxOnInitial = incrementalTaxOnGain(baseIncome, initialInvestment, filingStatus);
-            const grossedUpInvestment = initialInvestment + incrementalTaxOnInitial;
-            const finalIRAValue = grossedUpInvestment * Math.pow(1 + fundReturn, period);
-            const totalTaxOnWithdrawal = incrementalTaxOnGain(baseIncome, finalIRAValue, filingStatus);
+            const marginalTaxRate = getMarginalTaxRate(baseIncome, filingStatus);
+            const grossedUpInvestment = initialInvestment / (1 - marginalTaxRate);
+            
+            // Use unified compounding function
+            const finalIRAValue = calculateCompoundedValue(grossedUpInvestment, fundReturn, period);
+            const totalTaxOnWithdrawal = finalIRAValue * marginalTaxRate;
             const postTaxTerminalValue = finalIRAValue - totalTaxOnWithdrawal;
             
             const startDate = new Date('2025-06-01');
             const endDate = new Date(startDate);
-            endDate.setTime(startDate.getTime() + (period * 365.25 * 24 * 60 * 60 * 1000));
+            endDate.setTime(endDate.getTime() + (period * 365 * 24 * 60 * 60 * 1000));
             
             const dates = ['2025-06-01', endDate.toISOString().split('T')[0]];
-            const cashFlows = [-grossedUpInvestment / 1000, postTaxTerminalValue / 1000];
+            const cashFlows = [-initialInvestment / 1000, postTaxTerminalValue / 1000];
             const xirrResult = xirr(cashFlows, dates);
+            const netReturn = finalIRAValue - totalTaxOnWithdrawal - grossedUpInvestment;
 
             return {
                 xirr: xirrResult,
-                finalValue: postTaxTerminalValue,
+                finalValue: finalIRAValue,
                 totalTaxes: totalTaxOnWithdrawal,
                 initialInvestment: grossedUpInvestment,
-                netReturn: postTaxTerminalValue - grossedUpInvestment
+                netReturn: netReturn
             };
         }
 
         function calculateRothConversion(initialInvestment, fundReturn, period, baseIncome, filingStatus) {
             const conversionTax = incrementalTaxOnGain(baseIncome, initialInvestment, filingStatus);
             const totalInitialOutlay = initialInvestment + conversionTax;
-            const finalValue = initialInvestment * Math.pow(1 + fundReturn, period);
+            
+            // Use unified compounding function  
+            const finalValue = calculateCompoundedValue(initialInvestment, fundReturn, period);
 
             const startDate = new Date('2025-06-01');
             const endDate = new Date(startDate);
-            endDate.setTime(startDate.getTime() + (period * 365.25 * 24 * 60 * 60 * 1000));
-            
+            endDate.setTime(endDate.getTime() + (period * 365 * 24 * 60 * 60 * 1000));
+
             const cashFlows = [-totalInitialOutlay / 1000, finalValue / 1000];
             const dates = ['2025-06-01', endDate.toISOString().split('T')[0]];
             const xirrResult = xirr(cashFlows, dates);
+            const netReturn = finalValue - conversionTax - initialInvestment;
 
             return {
                 xirr: xirrResult,
                 finalValue: finalValue,
                 totalTaxes: conversionTax,
-                initialInvestment: totalInitialOutlay,
-                netReturn: finalValue - totalInitialOutlay
+                initialInvestment: initialInvestment,
+                netReturn: netReturn
             };
         }
 
@@ -539,42 +583,66 @@
             const iraXIRRs = [];
             const rothXIRRs = [];
             
-            for (let rate = 10; rate <= 100; rate += 5) {
+            for (let rate = 0; rate <= 100; rate += 5) {
                 const returnRate = rate / 100;
                 returnRates.push(rate);
                 
-                const taxableResult = calculateTaxableAccount(initialInvestment, returnRate, investmentPeriod, baseIncome, filingStatus);
-                const iraResult = calculateTraditionalIRA(initialInvestment, returnRate, investmentPeriod, baseIncome, filingStatus);
-                const rothResult = calculateRothConversion(initialInvestment, returnRate, investmentPeriod, baseIncome, filingStatus);
-                
-                taxableXIRRs.push(taxableResult.xirr * 100);
-                iraXIRRs.push(iraResult.xirr * 100);
-                rothXIRRs.push(rothResult.xirr * 100);
+                try {
+                    const taxableResult = calculateTaxableAccount(initialInvestment, returnRate, investmentPeriod, baseIncome, filingStatus);
+                    const iraResult = calculateTraditionalIRA(initialInvestment, returnRate, investmentPeriod, baseIncome, filingStatus);
+                    const rothResult = calculateRothConversion(initialInvestment, returnRate, investmentPeriod, baseIncome, filingStatus);
+                    
+                    taxableXIRRs.push(taxableResult.xirr * 100);
+                    iraXIRRs.push(iraResult.xirr * 100);
+                    rothXIRRs.push(rothResult.xirr * 100);
+                } catch (error) {
+                    // Handle calculation errors for extreme values
+                    taxableXIRRs.push(0);
+                    iraXIRRs.push(0);
+                    rothXIRRs.push(0);
+                }
             }
 
             updateSensitivityChart(returnRates, taxableXIRRs, iraXIRRs, rothXIRRs);
         }
+
+        let lastCalculationValues = {};
+        let calculationTimeout = null;
 
         function setupAutoCalculation() {
             const inputs = ['initialInvestment', 'fundReturn', 'investmentPeriod', 'baseIncome', 'filingStatus'];
             
             inputs.forEach(inputId => {
                 const element = document.getElementById(inputId);
-                element.addEventListener('input', debounce(calculateScenarios, 500));
-                element.addEventListener('change', calculateScenarios);
+                element.addEventListener('input', handleInputChange);
+                element.addEventListener('change', handleInputChange);
             });
         }
 
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
+        function handleInputChange() {
+            // Clear any pending calculation
+            if (calculationTimeout) {
+                clearTimeout(calculationTimeout);
+            }
+            
+            // Get current values
+            const currentValues = {
+                initialInvestment: document.getElementById('initialInvestment').value,
+                fundReturn: document.getElementById('fundReturn').value,
+                investmentPeriod: document.getElementById('investmentPeriod').value,
+                baseIncome: document.getElementById('baseIncome').value,
+                filingStatus: document.getElementById('filingStatus').value
             };
+            
+            // Check if values actually changed
+            const valuesChanged = JSON.stringify(currentValues) !== JSON.stringify(lastCalculationValues);
+            
+            if (valuesChanged) {
+                calculationTimeout = setTimeout(() => {
+                    lastCalculationValues = { ...currentValues };
+                    calculateScenarios();
+                }, 150);
+            }
         }
 
         function updateResults(results) {
