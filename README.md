@@ -10,7 +10,7 @@ The Investment Strategy Calculator compares after-tax, cash-to-cash returns for 
 ## Methodology
 
 The tool uses annual compounding to model fund growth and applies U.S. federal tax rules to simulate after-tax returns for each strategy. Progressive tax rates are applied based on the incremental income yielded by the fund, as applicable. XIRR is computed using all actual cash flows (inflows and outflows), producing a metric that reflects comparable post-tax net return to the investor. Each strategy is evaluated over the fund's life with a single terminal liquidation, allowing direct comparability across tax treatments.
-
+![Results Summary](images/results_summary.png)
 ---
 
 ## Key Assumptions
